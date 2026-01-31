@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { User, EmergencyContact } from '../types';
-import * as authService from '../services/firebase/auth';
+import * as authService from '../services/api/auth';
 
 interface AuthState {
   user: User | null;
