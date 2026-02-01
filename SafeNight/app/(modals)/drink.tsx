@@ -50,13 +50,43 @@ export default function DrinkModal() {
     if (isRecording) {
       const uri = await stopVoiceRecording();
       if (uri) {
-        // Voice transcription and drink logging handled by hook
+        // Import dynamically to avoid circular deps
+        const { transcribeAudio } = await import('../../src/services/api/elevenlabs');
+        try {
+          console.log('Transcribing audio from:', uri);
+          const result = await transcribeAudio(uri);
+          console.log('Transcription result:', result);
+          if (result.text) {
+            setDrinkInput(result.text); // Show the transcription in the input
+            await logDrinkByText(result.text); // Auto-log the drink
+            setDrinkInput(''); // Clear after logging
+          } else {
+            console.warn('No text transcribed from audio');
+          }
+        } catch (err) {
+          console.error('Transcription failed:', err);
+        }
       }
     } else {
       await startVoiceRecording();
       // Auto-stop after 5 seconds
-      setTimeout(() => {
-        stopVoiceRecording();
+      setTimeout(async () => {
+        const uri = await stopVoiceRecording();
+        if (uri) {
+          const { transcribeAudio } = await import('../../src/services/api/elevenlabs');
+          try {
+            console.log('Auto-stop: Transcribing audio from:', uri);
+            const result = await transcribeAudio(uri);
+            console.log('Auto-stop: Transcription result:', result);
+            if (result.text) {
+              setDrinkInput(result.text);
+              await logDrinkByText(result.text);
+              setDrinkInput('');
+            }
+          } catch (err) {
+            console.error('Auto-stop: Transcription failed:', err);
+          }
+        }
       }, 5000);
     }
   };
@@ -67,13 +97,13 @@ export default function DrinkModal() {
     icon: string;
     color: string;
   }> = [
-    { key: 'beer', label: 'Beer', icon: 'beer', color: Colors.caution },
-    { key: 'wine', label: 'Wine', icon: 'wine', color: Colors.secondary },
-    { key: 'shot', label: 'Shot', icon: 'flask', color: Colors.warning },
-    { key: 'cocktail', label: 'Cocktail', icon: 'cafe', color: Colors.primary },
-    { key: 'margarita', label: 'Margarita', icon: 'sunny', color: Colors.safe },
-    { key: 'longIsland', label: 'Long Island', icon: 'warning', color: Colors.danger },
-  ];
+      { key: 'beer', label: 'Beer', icon: 'beer', color: Colors.caution },
+      { key: 'wine', label: 'Wine', icon: 'wine', color: Colors.secondary },
+      { key: 'shot', label: 'Shot', icon: 'flask', color: Colors.warning },
+      { key: 'cocktail', label: 'Cocktail', icon: 'cafe', color: Colors.primary },
+      { key: 'margarita', label: 'Margarita', icon: 'sunny', color: Colors.safe },
+      { key: 'longIsland', label: 'Long Island', icon: 'warning', color: Colors.danger },
+    ];
 
   return (
     <SafeAreaView style={styles.container}>

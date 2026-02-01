@@ -58,7 +58,11 @@ export default function RegisterScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
           {/* Header */}
           <LinearGradient
             colors={Gradients.primary}
@@ -211,6 +215,10 @@ const styles = StyleSheet.create({
   },
   keyboardView: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 40,
   },
   header: {
     paddingTop: Spacing.lg,

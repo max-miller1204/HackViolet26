@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -44,101 +45,107 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        {/* Header */}
-        <LinearGradient
-          colors={Gradients.primary}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.header}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.logoContainer}>
-            <Ionicons name="shield-checkmark" size={60} color={Colors.white} />
-            <Text style={styles.logoText}>SafeNight</Text>
-            <Text style={styles.tagline}>Your safety companion for nights out</Text>
-          </View>
-        </LinearGradient>
-
-        {/* Form */}
-        <View style={styles.formContainer}>
-          <Text style={styles.title}>Welcome Back</Text>
-          <Text style={styles.subtitle}>Sign in to continue</Text>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons name="mail-outline" size={20} color={Colors.textMuted} />
-              <TextInput
-                style={styles.input}
-                placeholder="your@email.com"
-                placeholderTextColor={Colors.textMuted}
-                value={email}
-                onChangeText={(text) => {
-                  setEmail(text);
-                  clearError();
-                }}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
+          {/* Header */}
+          <LinearGradient
+            colors={Gradients.primary}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.header}
+          >
+            <View style={styles.logoContainer}>
+              <Ionicons name="shield-checkmark" size={60} color={Colors.white} />
+              <Text style={styles.logoText}>SafeNight</Text>
+              <Text style={styles.tagline}>Your safety companion for nights out</Text>
             </View>
-          </View>
+          </LinearGradient>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons name="lock-closed-outline" size={20} color={Colors.textMuted} />
-              <TextInput
-                style={styles.input}
-                placeholder="Enter password"
-                placeholderTextColor={Colors.textMuted}
-                value={password}
-                onChangeText={(text) => {
-                  setPassword(text);
-                  clearError();
-                }}
-                secureTextEntry={!showPassword}
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                <Ionicons
-                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                  size={20}
-                  color={Colors.textMuted}
+          {/* Form */}
+          <View style={styles.formContainer}>
+            <Text style={styles.title}>Welcome Back</Text>
+            <Text style={styles.subtitle}>Sign in to continue</Text>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Email</Text>
+              <View style={styles.inputContainer}>
+                <Ionicons name="mail-outline" size={20} color={Colors.textMuted} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="your@email.com"
+                  placeholderTextColor={Colors.textMuted}
+                  value={email}
+                  onChangeText={(text) => {
+                    setEmail(text);
+                    clearError();
+                  }}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
                 />
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Password</Text>
+              <View style={styles.inputContainer}>
+                <Ionicons name="lock-closed-outline" size={20} color={Colors.textMuted} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter password"
+                  placeholderTextColor={Colors.textMuted}
+                  value={password}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    clearError();
+                  }}
+                  secureTextEntry={!showPassword}
+                />
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                  <Ionicons
+                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                    size={20}
+                    color={Colors.textMuted}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {error && <Text style={styles.errorText}>{error}</Text>}
+
+            <TouchableOpacity
+              style={[styles.loginButton, (!email.trim() || !password.trim()) && styles.buttonDisabled]}
+              onPress={handleLogin}
+              disabled={!email.trim() || !password.trim() || isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color={Colors.white} />
+              ) : (
+                <Text style={styles.loginButtonText}>Sign In</Text>
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <TouchableOpacity style={styles.demoButton} onPress={handleDemoLogin}>
+              <Ionicons name="flash" size={20} color={Colors.primary} />
+              <Text style={styles.demoButtonText}>Continue with Demo Account</Text>
+            </TouchableOpacity>
+
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>Don't have an account? </Text>
+              <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
+                <Text style={styles.footerLink}>Sign Up</Text>
               </TouchableOpacity>
             </View>
           </View>
-
-          {error && <Text style={styles.errorText}>{error}</Text>}
-
-          <TouchableOpacity
-            style={[styles.loginButton, (!email.trim() || !password.trim()) && styles.buttonDisabled]}
-            onPress={handleLogin}
-            disabled={!email.trim() || !password.trim() || isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color={Colors.white} />
-            ) : (
-              <Text style={styles.loginButtonText}>Sign In</Text>
-            )}
-          </TouchableOpacity>
-
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          <TouchableOpacity style={styles.demoButton} onPress={handleDemoLogin}>
-            <Ionicons name="flash" size={20} color={Colors.primary} />
-            <Text style={styles.demoButtonText}>Continue with Demo Account</Text>
-          </TouchableOpacity>
-
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
-              <Text style={styles.footerLink}>Sign Up</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -151,6 +158,10 @@ const styles = StyleSheet.create({
   },
   keyboardView: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 40,
   },
   header: {
     paddingTop: Spacing.xxl,

@@ -9,15 +9,29 @@ import {
   Venue,
 } from '../../types';
 
+// OpenRouter API (more reliable than Gemini for rate limits)
+const OPENROUTER_API_KEY = process.env.EXPO_PUBLIC_OPEN_ROUTER_API_KEY?.trim();
+const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+
+// Fallback to Gemini if OpenRouter not configured
 const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
-const isDemoMode = !GEMINI_API_KEY || GEMINI_API_KEY === 'your_gemini_api_key_here';
+const useOpenRouter = !!OPENROUTER_API_KEY && OPENROUTER_API_KEY !== 'your_openrouter_api_key_here';
+const isDemoMode = !useOpenRouter && (!GEMINI_API_KEY || GEMINI_API_KEY === 'your_gemini_api_key_here');
 
 interface GeminiResponse {
   candidates: Array<{
     content: {
       parts: Array<{ text: string }>;
+    };
+  }>;
+}
+
+interface OpenRouterResponse {
+  choices: Array<{
+    message: {
+      content: string;
     };
   }>;
 }
@@ -33,8 +47,8 @@ const getDemoResponse = (prompt: string): string => {
   if (p.includes('parse this night plan') && p.includes('return only this json')) {
     return JSON.stringify({
       venues: [
-        { name: 'The Rooftop Bar', time: '8:00 PM' },
-        { name: 'Luna Lounge', time: '10:30 PM' },
+        { name: 'Sharkey\'s', time: '8:00 PM' },
+        { name: 'TOTS', time: '10:30 PM' },
       ],
       departureTime: '7:30 PM',
       returnTime: '1:00 AM',
@@ -73,7 +87,7 @@ const getDemoResponse = (prompt: string): string => {
 
   // General conversational responses (for chat assistant)
   if (textToCheck.includes('venue') || textToCheck.includes('bar') || textToCheck.includes('recommend') || textToCheck.includes('safe nearby') || textToCheck.includes('find me')) {
-    return 'Based on your preferences, I recommend checking out The Rooftop Bar on Main Street - it has great reviews for safety, well-lit parking, and a friendly atmosphere. Luna Lounge is also popular among women and has dedicated security staff.';
+    return 'For a safe night in Blacksburg, I recommend The Cellar on N Main St - it\'s women-owned with a great safety rating. Sharkey\'s has security staff and is well-lit, and TOTS on College Ave is popular but gets crowded late. The Milk Parlor is another great women-owned spot with live music!';
   }
 
   if (textToCheck.includes('ride') || textToCheck.includes('uber') || textToCheck.includes('taxi') || textToCheck.includes('wait')) {
@@ -115,34 +129,63 @@ const getDemoResponse = (prompt: string): string => {
   return 'I\'m here to help you stay safe tonight! I can help you plan your evening, track drinks, find safe venues, or assist in an emergency. What would you like to know?';
 };
 
-const callGemini = async (prompt: string): Promise<string> => {
+const callAI = async (prompt: string): Promise<string> => {
   if (isDemoMode) {
     // Return demo responses based on prompt content
     return getDemoResponse(prompt);
   }
 
   try {
-    const response = await axios.post<GeminiResponse>(
-      `${GEMINI_API_URL}?key=${GEMINI_API_KEY}`,
-      {
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
+    if (useOpenRouter) {
+      // Use OpenRouter API (OpenAI-compatible)
+      console.log('Using OpenRouter API');
+      const response = await axios.post<OpenRouterResponse>(
+        OPENROUTER_API_URL,
+        {
+          model: 'google/gemini-2.0-flash-001', // Fast and cheap model on OpenRouter
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 1024,
           temperature: 0.7,
-          maxOutputTokens: 1024,
         },
-      },
-      {
-        headers: { 'Content-Type': 'application/json' },
-      }
-    );
+        {
+          headers: {
+            'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://safenight.app', // Required by OpenRouter
+            'X-Title': 'SafeNight App',
+          },
+        }
+      );
 
-    return response.data.candidates[0]?.content?.parts[0]?.text || '';
+      return response.data.choices[0]?.message?.content || '';
+    } else {
+      // Fallback to Gemini API
+      console.log('Using Gemini API');
+      const response = await axios.post<GeminiResponse>(
+        `${GEMINI_API_URL}?key=${GEMINI_API_KEY}`,
+        {
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 1024,
+          },
+        },
+        {
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+
+      return response.data.candidates[0]?.content?.parts[0]?.text || '';
+    }
   } catch (error) {
-    console.warn('Gemini API error (Rate Limit or Network). Falling back to simulated response.', error);
+    console.warn('AI API error (Rate Limit or Network). Falling back to simulated response.', error);
     // Fallback to demo response so the app doesn't crash during Hackathon
     return getDemoResponse(prompt);
   }
 };
+
+// Alias for backward compatibility
+const callGemini = callAI;
 
 
 

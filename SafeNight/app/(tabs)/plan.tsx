@@ -53,9 +53,9 @@ export default function PlanScreen() {
   };
 
   const examplePlans = [
-    'Going to The Rooftop Bar at 8pm, then Luna Lounge at 10pm. Taking Uber, back by 1am.',
-    'Dinner at 7pm at Olive & Vine, then drinks at The Speakeasy around 9pm.',
-    'Girls night at Starlight Club starting at 10pm, designated driver bringing us home.',
+    'Going to Sharkey\'s at 8pm, then TOTS at 10pm. Taking Uber, back by 1am.',
+    'Dinner at 7pm at The Cellar, then drinks at Hokie House around 9pm.',
+    'Girls night at The Milk Parlor starting at 9pm, designated driver bringing us home.',
   ];
 
   return (
@@ -112,7 +112,7 @@ export default function PlanScreen() {
 
                 <TextInput
                   style={styles.textInput}
-                  placeholder="e.g., Going to The Rooftop Bar at 8pm, then Luna Lounge at 10pm..."
+                  placeholder="e.g., Going to Sharkey's at 8pm, then TOTS at 10pm..."
                   placeholderTextColor={Colors.textMuted}
                   value={planInput}
                   onChangeText={setPlanInput}
