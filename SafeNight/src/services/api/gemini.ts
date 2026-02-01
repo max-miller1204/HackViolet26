@@ -10,7 +10,7 @@ import {
 } from '../../types';
 
 const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
 const isDemoMode = !GEMINI_API_KEY || GEMINI_API_KEY === 'your_gemini_api_key_here';
 
@@ -91,24 +91,35 @@ const getDemoResponse = (prompt: string): string => {
 
 export const parseNightPlan = async (input: string): Promise<GeminiPlanResponse> => {
   const prompt = `You are a helpful assistant for a women's safety app. Please parse this night plan description and extract the relevant information.
-
-Input: "${input}"
-
-Return a JSON object with the following structure (only include fields that are mentioned):
-{
-  "venues": [{"name": "venue name", "time": "time if mentioned"}],
-  "departureTime": "departure time",
-  "returnTime": "expected return time",
-  "transportation": "rideshare|designated_driver|public_transit|walking"
-}
-
-Only respond with the JSON, no other text.`;
+  
+  CONTEXT: The user is likely a student or young adult in Blacksburg, VA (Virginia Tech area).
+  
+  Input: "${input}"
+  
+  INSTRUCTIONS:
+  1. Extract venues and times.
+  2. If times are NOT mentioned, INFER logical times for a night out (e.g., Dinner at 7pm, Pre-game at 9pm, Bar at 10pm).
+  3. Ensure the return time is safe and reasonable (e.g. 1 AM or 2 AM).
+  4. Infer transportation if not specified (default to 'rideshare' or 'walking' if close).
+  
+  Return a JSON object with the following structure:
+  {
+    "venues": [{"name": "venue name", "time": "8:00 PM"}],
+    "departureTime": "7:30 PM",
+    "returnTime": "1:00 AM",
+    "transportation": "rideshare|designated_driver|public_transit|walking"
+  }
+  
+  Only respond with the JSON, no other text.`;
 
   const response = await callGemini(prompt);
 
   try {
-    return JSON.parse(response);
-  } catch {
+    // Clean up the response if it contains markdown code blocks
+    const cleaned = response.replace(/```json/g, '').replace(/```/g, '').trim();
+    return JSON.parse(cleaned);
+  } catch (error) {
+    console.error('Failed to parse plan JSON:', error, response);
     // If parsing fails, return empty structure
     return { venues: [] };
   }
@@ -230,7 +241,11 @@ export const chatWithAssistant = async (
 - Emergency assistance information
 - Emotional support and companionship
 
-Be warm, supportive, and prioritize the user's safety. Keep responses concise but helpful.
+IMPORTANT RULES:
+1. Do NOT use markdown bolding (don't use ** or *) in your response. Plain text only.
+2. Keep responses VERY concise and short (under 3 sentences when possible).
+3. If no location is specified, ASSUME the user is in Blacksburg, VA (Virginia Tech area).
+4. Be warm, supportive, and prioritize the user's safety.
 
 ${contextInfo}
 

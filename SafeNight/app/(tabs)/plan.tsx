@@ -25,10 +25,19 @@ export default function PlanScreen() {
   const [showPlanInput, setShowPlanInput] = useState(!currentPlan);
 
   const handleCreatePlan = async () => {
-    if (!planInput.trim() || !user) return;
+    // Demo Mode workaround: Use real ID or fake one
+    const userId = user?.id || 'demo-user-123';
+    console.log('Button Pressed. Input:', planInput, 'User:', userId);
+
+    if (!planInput.trim()) {
+      console.warn('Missing input');
+      return;
+    }
 
     try {
-      await createPlanFromText(planInput.trim(), user.id);
+      console.log('Calling createPlanFromText with user:', userId);
+      const result = await createPlanFromText(planInput.trim(), userId);
+      console.log('Plan created successfully:', result);
       setPlanInput('');
       setShowPlanInput(false);
     } catch (error) {

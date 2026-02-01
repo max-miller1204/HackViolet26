@@ -11,8 +11,10 @@ const createConnection = (): snowflake.Connection => {
     username: process.env.SNOWFLAKE_USER || '',
     password: process.env.SNOWFLAKE_PASSWORD || '',
     database: process.env.SNOWFLAKE_DATABASE || 'SAFENIGHT_DB',
-    schema: 'APP_DATA',
+    schema: process.env.SNOWFLAKE_SCHEMA || 'APP_DATA',
     warehouse: process.env.SNOWFLAKE_WAREHOUSE || 'COMPUTE_WH',
+    role: process.env.SNOWFLAKE_ROLE || 'ACCOUNTADMIN',
+    authenticator: process.env.SNOWFLAKE_AUTHENTICATOR || undefined,
   });
 };
 
@@ -30,7 +32,7 @@ export const connect = (): Promise<void> => {
         console.error('Failed to connect to Snowflake:', err.message);
         reject(err);
       } else {
-        console.log('Successfully connected to Snowflake');
+        console.log('Successfully connected to Snowflake (Real Database Mode)');
         resolve();
       }
     });

@@ -1,3 +1,5 @@
+import * as dotenv from 'dotenv';
+dotenv.config();
 import express from 'express';
 import cors from 'cors';
 import { connect as connectSnowflake } from './services/snowflake';

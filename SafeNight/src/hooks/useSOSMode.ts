@@ -108,7 +108,11 @@ export const useSOSMode = (options: UseSOSModeOptions = {}): UseSOSModeReturn =>
   }, [currentSOS, storeResolveSOS]);
 
   const processVoiceRecording = useCallback(async () => {
-    if (!user?.sosCodeWord || !recordingRef.current) return;
+    console.log('[SOS] Processing Voice Recording. User:', !!user, 'CodeWord:', user?.sosCodeWord, 'RecordingRef:', !!recordingRef.current);
+    if (!user?.sosCodeWord || !recordingRef.current) {
+      console.log('[SOS] Skipping processing - missing requirements');
+      return;
+    }
 
     try {
       const uri = await stopRecording(recordingRef.current);

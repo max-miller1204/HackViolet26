@@ -1,5 +1,7 @@
 import axios from 'axios';
 import { Audio } from 'expo-av';
+import * as FileSystem from 'expo-file-system';
+import { Platform } from 'react-native';
 
 const ELEVENLABS_API_KEY = process.env.EXPO_PUBLIC_ELEVENLABS_API_KEY;
 const ELEVENLABS_API_URL = 'https://api.elevenlabs.io/v1';
@@ -22,11 +24,9 @@ export interface SOSCodeWordResult {
 
 /**
  * Transcribe audio to text using ElevenLabs Speech-to-Text
- * Note: For hackathon, we'll use a simpler approach with demo mode
  */
 export const transcribeAudio = async (audioUri: string): Promise<TranscriptionResult> => {
   if (isDemoMode) {
-    // Demo mode - return mock transcription
     return {
       text: 'I just had a margarita',
       confidence: 0.95,
@@ -34,19 +34,58 @@ export const transcribeAudio = async (audioUri: string): Promise<TranscriptionRe
   }
 
   try {
-    // For hackathon demo, we return mock data
-    // In production, this would use actual ElevenLabs API
-    console.log('ElevenLabs: Would transcribe audio from:', audioUri);
+    const formData = new FormData();
 
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    if (Platform.OS === 'web') {
+      // On web, we need to fetch the blob from the blob: URI
+      console.log('Fetching blob from URI:', audioUri);
+      const response = await fetch(audioUri);
+      const blob = await response.blob();
+      console.log('Audio Blob Size:', blob.size, 'Type:', blob.type);
+
+      // If blob is too small, it's likely empty/failed
+      if (blob.size < 100) {
+        console.warn('Audio blob is too small, mostly likely recording failed or is empty.');
+      }
+
+      formData.append('file', blob, 'audio.webm'); // Web usually records as webm
+      formData.append('model_id', 'scribble_1');
+    } else {
+      // Expo handles FormData differently on native - we need to pass an object with uri, type, and name
+      // @ts-ignore
+      formData.append('file', {
+        uri: audioUri,
+        type: 'audio/m4a', // Expo High Quality preset uses m4a
+        name: 'audio.m4a',
+      });
+      formData.append('model_id', 'scribble_1');
+    }
+
+    const response = await axios.post(
+      `${ELEVENLABS_API_URL}/speech-to-text`,
+      formData,
+      {
+        headers: {
+          'xi-api-key': ELEVENLABS_API_KEY,
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+
+    console.log('Transcription success:', response.data);
 
     return {
-      text: 'I just had a margarita',
-      confidence: 0.9,
+      text: response.data.text,
+      confidence: 0.9, // ElevenLabs doesn't always return confidence, defaulting to high
     };
   } catch (error) {
     console.error('ElevenLabs transcription error:', error);
+    if (axios.isAxiosError(error)) {
+      console.error('Status:', error.response?.status);
+      console.error('Data:', JSON.stringify(error.response?.data, null, 2));
+      console.error('Headers:', JSON.stringify(error.response?.headers, null, 2));
+    }
+    // Fallback to empty
     return { text: '', confidence: 0 };
   }
 };
@@ -59,21 +98,40 @@ export const synthesizeSpeech = async (
   voiceId: string = DEFAULT_VOICE_ID
 ): Promise<string | null> => {
   if (isDemoMode) {
-    // Demo mode - return null (no audio)
     console.log('TTS Demo Mode - would speak:', text);
     return null;
   }
 
   try {
-    // For hackathon demo, we log the text that would be spoken
-    // In production, this would use actual ElevenLabs TTS API
-    console.log('ElevenLabs TTS: Would speak:', text);
+    const response = await axios.post(
+      `${ELEVENLABS_API_URL}/text-to-speech/${voiceId}`,
+      {
+        text,
+        model_id: 'eleven_monolingual_v1',
+        voice_settings: {
+          stability: 0.5,
+          similarity_boost: 0.75,
+        },
+      },
+      {
+        headers: {
+          'xi-api-key': ELEVENLABS_API_KEY,
+          'Content-Type': 'application/json',
+          'Accept': 'audio/mpeg',
+        },
+        responseType: 'arraybuffer', // Crucial for receiving audio data
+      }
+    );
 
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    // Save the audio file locally
+    const fileUri = `${FileSystem.documentDirectory}speech_${Date.now()}.mp3`;
+    const base64Audio = Buffer.from(response.data, 'binary').toString('base64');
 
-    // Return null since we don't have actual audio in demo mode
-    return null;
+    await FileSystem.writeAsStringAsync(fileUri, base64Audio, {
+      encoding: "base64",
+    });
+
+    return fileUri;
   } catch (error) {
     console.error('ElevenLabs TTS error:', error);
     return null;
@@ -85,6 +143,9 @@ export const synthesizeSpeech = async (
  */
 export const playSpeech = async (audioUri: string): Promise<void> => {
   try {
+    // If the URI is null (demo mode or error), do nothing
+    if (!audioUri) return;
+
     const { sound } = await Audio.Sound.createAsync({ uri: audioUri });
     await sound.playAsync();
 
@@ -92,6 +153,8 @@ export const playSpeech = async (audioUri: string): Promise<void> => {
     sound.setOnPlaybackStatusUpdate((status) => {
       if (status.isLoaded && status.didJustFinish) {
         sound.unloadAsync();
+        // Optional: Delete file after playing to save space
+        // FileSystem.deleteAsync(audioUri, { idempotent: true });
       }
     });
   } catch (error) {
@@ -119,7 +182,6 @@ export const detectSOSCodeWord = (
   }
 
   // Fuzzy match - check for similar sounding words
-  // This is a simple implementation; could use Levenshtein distance for better matching
   const words = normalizedTranscription.split(/\s+/);
   for (const word of words) {
     const similarity = calculateSimilarity(word, normalizedCodeWord);
@@ -164,31 +226,80 @@ const calculateSimilarity = (str1: string, str2: string): number => {
   return (2 * intersection) / (bigrams1.size + bigrams2.size);
 };
 
+// Web recorder storage
+let mediaRecorder: MediaRecorder | null = null;
+let audioChunks: Blob[] = [];
+
 /**
  * Start voice recording for drink logging or SOS detection
  */
-export const startRecording = async (): Promise<Audio.Recording> => {
-  await Audio.requestPermissionsAsync();
-  await Audio.setAudioModeAsync({
-    allowsRecordingIOS: true,
-    playsInSilentModeIOS: true,
-  });
+export const startRecording = async (): Promise<any> => {
+  if (Platform.OS === 'web') {
+    try {
+      console.log('Requesting web microphone access...');
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+      audioChunks = [];
 
-  const { recording } = await Audio.Recording.createAsync(
-    Audio.RecordingOptionsPresets.HIGH_QUALITY
-  );
+      mediaRecorder.ondataavailable = (event) => {
+        audioChunks.push(event.data);
+      };
 
-  return recording;
+      mediaRecorder.start();
+      console.log('Web recording started');
+      return mediaRecorder;
+    } catch (err) {
+      console.error('Failed to start web recording:', err);
+      throw err;
+    }
+  }
+
+  // Native (iOS/Android)
+  try {
+    const { recording } = await Audio.Recording.createAsync(
+      Audio.RecordingOptionsPresets.HIGH_QUALITY
+    );
+    console.log('Native recording started');
+    return recording;
+  } catch (err) {
+    console.error('Failed to start native recording:', err);
+    throw err;
+  }
 };
 
 /**
  * Stop recording and get the audio URI
  */
-export const stopRecording = async (recording: Audio.Recording): Promise<string> => {
-  await recording.stopAndUnloadAsync();
-  await Audio.setAudioModeAsync({
-    allowsRecordingIOS: false,
-  });
+export const stopRecording = async (recording: any): Promise<string> => {
+  if (Platform.OS === 'web') {
+    return new Promise((resolve) => {
+      if (!mediaRecorder) {
+        resolve('');
+        return;
+      }
 
-  return recording.getURI() || '';
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        const audioUrl = URL.createObjectURL(audioBlob);
+        console.log('Web recording stopped, Blob URL:', audioUrl);
+        resolve(audioUrl);
+      };
+
+      mediaRecorder.stop();
+      mediaRecorder.stream.getTracks().forEach(track => track.stop());
+      mediaRecorder = null;
+    });
+  }
+
+  // Native
+  try {
+    await recording.stopAndUnloadAsync();
+    await Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+    });
+    return recording.getURI() || '';
+  } catch (err) {
+    console.error('Failed to stop native recording:', err);
+    return '';
+  }
 };
