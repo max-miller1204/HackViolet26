@@ -7,6 +7,7 @@ import {
   SafeAreaView,
   TextInput,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,6 +30,9 @@ export default function OnboardingScreen() {
   const [weight, setWeight] = useState('140');
   const [gender, setGender] = useState<'female' | 'male' | 'other'>('female');
 
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isVerified, setIsVerified] = useState(false);
+
   const handleAddContact = () => {
     if (!contact.name.trim() || !contact.phone.trim()) return;
 
@@ -50,16 +54,30 @@ export default function OnboardingScreen() {
     setStep(3);
   };
 
-  const handleComplete = () => {
+  const handleProfileInfo = () => {
     updateProfile({
       weight: parseInt(weight) || 140,
       gender,
     });
+    setStep(4);
+  };
+
+  const handleVerification = () => {
+    setIsVerifying(true);
+    // Simulate API call
+    setTimeout(() => {
+      setIsVerifying(false);
+      setIsVerified(true);
+    }, 2000);
+  };
+
+  const handleComplete = () => {
     router.replace('/(tabs)');
   };
 
   const renderStep1 = () => (
     <View style={styles.stepContent}>
+      {/* ... existing Step 1 content ... */}
       <View style={styles.stepIcon}>
         <Ionicons name="people" size={40} color={Colors.primary} />
       </View>
@@ -119,6 +137,7 @@ export default function OnboardingScreen() {
 
   const renderStep2 = () => (
     <View style={styles.stepContent}>
+      {/* ... existing Step 2 content ... */}
       <View style={styles.stepIcon}>
         <Ionicons name="mic" size={40} color={Colors.secondary} />
       </View>
@@ -209,10 +228,70 @@ export default function OnboardingScreen() {
         </Text>
       </View>
 
-      <TouchableOpacity style={styles.completeButton} onPress={handleComplete}>
-        <Text style={styles.completeButtonText}>Get Started</Text>
+      <TouchableOpacity style={styles.nextButton} onPress={handleProfileInfo}>
+        <Text style={styles.nextButtonText}>Next: Verify ID</Text>
+        <Ionicons name="arrow-forward" size={20} color={Colors.white} />
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderStep4 = () => (
+    <View style={styles.stepContent}>
+      <View style={styles.stepIcon}>
+        <Ionicons name={isVerified ? "shield-checkmark" : "scan"} size={40} color={isVerified ? Colors.safe : Colors.text} />
+      </View>
+      <Text style={styles.stepTitle}>{isVerified ? "Identity Verified" : "Verify Identity"}</Text>
+      <Text style={styles.stepDescription}>
+        To ensure SafeNight remains a safe community for women, we ask you to verify your ID.
+      </Text>
+
+      {!isVerified ? (
+        <TouchableOpacity
+          style={styles.scanIdBox}
+          onPress={handleVerification}
+          disabled={isVerifying}
+        >
+          {isVerifying ? (
+            <ActivityIndicator size="large" color={Colors.primary} />
+          ) : (
+            <>
+              <Ionicons name="camera-outline" size={48} color={Colors.textMuted} />
+              <Text style={styles.scanText}>Tap to Scan Driver's License</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.verifiedBox}>
+          <Ionicons name="checkmark-circle" size={64} color={Colors.safe} />
+          <Text style={styles.verifiedTitle}>Verification Successful</Text>
+          <Text style={styles.verifiedText}>
+            ID matches profile ({gender.charAt(0).toUpperCase() + gender.slice(1)})
+          </Text>
+        </View>
+      )}
+
+      <View style={styles.privacyCard}>
+        <Ionicons name="eye-off" size={20} color={Colors.caution} />
+        <Text style={styles.privacyText}>
+          ID images are processed instantly and NOT stored on our servers.
+        </Text>
+      </View>
+
+      <TouchableOpacity
+        style={[styles.completeButton, !isVerified && styles.buttonDisabled]}
+        onPress={handleComplete}
+        disabled={!isVerified}
+      >
+        <Text style={styles.completeButtonText}>Complete Setup</Text>
         <Ionicons name="checkmark" size={20} color={Colors.white} />
       </TouchableOpacity>
+
+      {!isVerified && (
+        <TouchableOpacity style={styles.skipButton} onPress={() => setIsVerified(true)}>
+          {/* Demo backdoor */}
+          <Text style={styles.skipButtonText}>[Demo: Simulate Verify]</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 
@@ -231,7 +310,7 @@ export default function OnboardingScreen() {
 
           {/* Progress */}
           <View style={styles.progress}>
-            {[1, 2, 3].map((s) => (
+            {[1, 2, 3, 4].map((s) => (
               <View
                 key={s}
                 style={[
@@ -251,6 +330,7 @@ export default function OnboardingScreen() {
           {step === 1 && renderStep1()}
           {step === 2 && renderStep2()}
           {step === 3 && renderStep3()}
+          {step === 4 && renderStep4()}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -452,5 +532,45 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: Typography.base,
     fontWeight: Typography.bold,
+  },
+  scanIdBox: {
+    width: '100%',
+    height: 200,
+    borderWidth: 2,
+    borderColor: Colors.border,
+    borderStyle: 'dashed',
+    borderRadius: BorderRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.surface,
+    marginBottom: Spacing.lg,
+    gap: Spacing.md,
+  },
+  scanText: {
+    color: Colors.textSecondary,
+    fontSize: Typography.base,
+    textAlign: 'center',
+  },
+  verifiedBox: {
+    width: '100%',
+    height: 200,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.safe + '10',
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.lg,
+    gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.safe,
+  },
+  verifiedTitle: {
+    color: Colors.safe,
+    fontSize: Typography.xl,
+    fontWeight: Typography.bold,
+  },
+  verifiedText: {
+    color: Colors.text,
+    fontSize: Typography.sm,
+    textAlign: 'center',
   },
 });

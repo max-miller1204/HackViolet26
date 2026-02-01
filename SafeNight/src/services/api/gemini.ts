@@ -22,35 +22,30 @@ interface GeminiResponse {
   }>;
 }
 
-const callGemini = async (prompt: string): Promise<string> => {
-  if (isDemoMode) {
-    // Return demo responses based on prompt content
-    return getDemoResponse(prompt);
-  }
-
-  try {
-    const response = await axios.post<GeminiResponse>(
-      `${GEMINI_API_URL}?key=${GEMINI_API_KEY}`,
-      {
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 1024,
-        },
-      },
-      {
-        headers: { 'Content-Type': 'application/json' },
-      }
-    );
-
-    return response.data.candidates[0]?.content?.parts[0]?.text || '';
-  } catch (error) {
-    console.error('Gemini API error:', error);
-    throw error;
-  }
-};
-
 const getDemoResponse = (prompt: string): string => {
+  if (prompt.includes('venue') || prompt.includes('bar') || prompt.includes('recommend')) {
+    return 'Based on your preferences, I recommend checking out The Rooftop Bar on Main Street - it has great reviews for safety, well-lit parking, and a friendly atmosphere. Luna Lounge is also popular among women and has dedicated security staff.';
+  }
+
+  // Enhanced Fallbacks for specific topics
+  const p = prompt.toLowerCase();
+
+  if (p.includes('ride') || p.includes('uber') || p.includes('taxi') || p.includes('wait')) {
+    return "When waiting for a ride, stay inside a venue or in a well-lit area. Verify the license plate and driver's name before getting in. Share your trip status with a friend through the SafeNight app.";
+  }
+
+  if (p.includes('scared') || p.includes('help') || p.includes('follow') || p.includes('unsafe')) {
+    return "If you feel unsafe, head to the nearest open business or public area with people. You can use the SOS button on the home screen to alert your contacts instantly. If you are in immediate danger, call 911.";
+  }
+
+  if (p.includes('friend') || p.includes('group') || p.includes('alone')) {
+    return "It's always safer to stay in pairs or groups (buddy system). If you must separate, agree on a meeting spot and time. Use the 'Check-In' feature to keep each other updated.";
+  }
+
+  if (p.includes('water') || p.includes('drink') || p.includes('sober')) {
+    return "Alternating alcoholic drinks with water helps you stay hydrated and pace yourself. Never leave your drink unattended. If you suspect your drink was spiked, seek help immediately.";
+  }
+
   // Demo responses for hackathon
   if (prompt.includes('parse this night plan')) {
     return JSON.stringify({
@@ -82,12 +77,39 @@ const getDemoResponse = (prompt: string): string => {
     });
   }
 
-  if (prompt.includes('venue') || prompt.includes('bar') || prompt.includes('recommend')) {
-    return 'Based on your preferences, I recommend checking out The Rooftop Bar on Main Street - it has great reviews for safety, well-lit parking, and a friendly atmosphere. Luna Lounge is also popular among women and has dedicated security staff.';
-  }
-
   return 'I\'m here to help you stay safe tonight! I can help you plan your evening, track drinks, find safe venues, or assist in an emergency. What would you like to know?';
 };
+
+const callGemini = async (prompt: string): Promise<string> => {
+  if (isDemoMode) {
+    // Return demo responses based on prompt content
+    return getDemoResponse(prompt);
+  }
+
+  try {
+    const response = await axios.post<GeminiResponse>(
+      `${GEMINI_API_URL}?key=${GEMINI_API_KEY}`,
+      {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 1024,
+        },
+      },
+      {
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+
+    return response.data.candidates[0]?.content?.parts[0]?.text || '';
+  } catch (error) {
+    console.warn('Gemini API error (Rate Limit or Network). Falling back to simulated response.', error);
+    // Fallback to demo response so the app doesn't crash during Hackathon
+    return getDemoResponse(prompt);
+  }
+};
+
+
 
 export const parseNightPlan = async (input: string): Promise<GeminiPlanResponse> => {
   const prompt = `You are a helpful assistant for a women's safety app. Please parse this night plan description and extract the relevant information.

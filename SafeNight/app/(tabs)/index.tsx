@@ -29,11 +29,12 @@ export default function HomeScreen() {
   const { triggerSOS, resolveSOS, cancelSOS } = useSOSMode();
 
   // Load demo user on mount for hackathon
+  // Redirect to login if not authenticated
   useEffect(() => {
     if (!user) {
-      loadDemoUser();
+      router.replace('/(auth)/login');
     }
-  }, [user, loadDemoUser]);
+  }, [user]);
 
   const handleCheckIn = (checkInId: string) => {
     if (currentPlan) {

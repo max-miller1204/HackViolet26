@@ -258,10 +258,11 @@ export default function MapScreen() {
             style={styles.venueActionButton}
             onPress={() => {
               if (!selectedVenue) return;
+              const query = encodeURIComponent(`${selectedVenue.name}, ${selectedVenue.address}`);
               const url = Platform.select({
-                ios: `maps:0,0?q=${selectedVenue.name}@${selectedVenue.latitude},${selectedVenue.longitude}`,
-                android: `geo:0,0?q=${selectedVenue.latitude},${selectedVenue.longitude}(${selectedVenue.name})`,
-                web: `https://www.google.com/maps/search/?api=1&query=${selectedVenue.latitude},${selectedVenue.longitude}`
+                ios: `maps:0,0?q=${query}`,
+                android: `geo:0,0?q=${query}`,
+                web: `https://www.google.com/maps/search/?api=1&query=${query}`
               });
               Linking.openURL(url || '');
             }}

@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { format, isAfter, isBefore } from 'date-fns';
 import { NightPlan, CheckIn, Venue } from '../../types';
@@ -23,6 +23,19 @@ interface TimelineItem {
 
 export const SafetyTimeline: React.FC<SafetyTimelineProps> = ({ plan, onCheckIn }) => {
   const now = new Date();
+  const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
+
+  const toggleItem = (id: string) => {
+    setCompletedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   // Build timeline items
   const buildTimelineItems = (): TimelineItem[] => {
@@ -35,7 +48,7 @@ export const SafetyTimeline: React.FC<SafetyTimelineProps> = ({ plan, onCheckIn 
       time: new Date(plan.departureTime),
       title: 'Departure',
       subtitle: plan.transportation,
-      status: isAfter(now, new Date(plan.departureTime)) ? 'completed' : 'upcoming',
+      status: completedIds.has('departure') || isAfter(now, new Date(plan.departureTime)) ? 'completed' : 'upcoming',
     });
 
     // Venues and check-ins interleaved by time
@@ -45,7 +58,7 @@ export const SafetyTimeline: React.FC<SafetyTimelineProps> = ({ plan, onCheckIn 
       time: new Date(plan.departureTime.getTime() + (index + 1) * 60 * 60 * 1000), // Estimate 1hr apart
       title: venue.name,
       subtitle: venue.type,
-      status: 'upcoming' as const,
+      status: completedIds.has(`venue-${venue.id}`) ? 'completed' : 'upcoming',
       venue,
     }));
 
@@ -54,18 +67,18 @@ export const SafetyTimeline: React.FC<SafetyTimelineProps> = ({ plan, onCheckIn 
       type: 'checkin' as const,
       time: new Date(checkIn.scheduledAt),
       title: 'Safety Check-In',
-      subtitle: checkIn.status === 'completed'
-        ? `Completed at ${format(new Date(checkIn.completedAt!), 'h:mm a')}`
+      subtitle: completedIds.has(`checkin-${checkIn.id}`) || checkIn.status === 'completed'
+        ? `Completed/Safe`
         : checkIn.status === 'missed'
-        ? 'Missed'
-        : 'Pending',
-      status: checkIn.status === 'completed'
+          ? 'Missed'
+          : 'Tap to Mark Safe',
+      status: completedIds.has(`checkin-${checkIn.id}`) || checkIn.status === 'completed'
         ? 'completed'
         : checkIn.status === 'missed'
-        ? 'missed'
-        : isAfter(now, new Date(checkIn.scheduledAt))
-        ? 'current'
-        : 'upcoming',
+          ? 'missed'
+          : isAfter(now, new Date(checkIn.scheduledAt))
+            ? 'current'
+            : 'upcoming',
       checkIn,
     }));
 
@@ -80,12 +93,12 @@ export const SafetyTimeline: React.FC<SafetyTimelineProps> = ({ plan, onCheckIn 
       time: new Date(plan.returnTime),
       title: 'Return Home',
       subtitle: 'Safe arrival',
-      status: isAfter(now, new Date(plan.returnTime)) ? 'completed' : 'upcoming',
+      status: completedIds.has('return') || isAfter(now, new Date(plan.returnTime)) ? 'completed' : 'upcoming',
     });
 
-    // Update venue statuses based on time
+    // Update venue statuses based on time (if not manually overridden)
     items.forEach((item, index) => {
-      if (item.type === 'venue') {
+      if (item.type === 'venue' && !completedIds.has(item.id)) {
         const nextItem = items[index + 1];
         if (isAfter(now, item.time)) {
           if (nextItem && isBefore(now, nextItem.time)) {
@@ -157,13 +170,17 @@ export const SafetyTimeline: React.FC<SafetyTimelineProps> = ({ plan, onCheckIn 
 
               {/* Line and dot */}
               <View style={styles.lineColumn}>
-                <View style={[styles.dot, { backgroundColor: color }]}>
+                <TouchableOpacity
+                  style={[styles.dot, { backgroundColor: color }]}
+                  onPress={() => toggleItem(item.id)}
+                  activeOpacity={0.7}
+                >
                   <Ionicons
                     name={getIcon(item.type)}
                     size={16}
                     color={Colors.white}
                   />
-                </View>
+                </TouchableOpacity>
                 {!isLast && (
                   <View
                     style={[
@@ -179,10 +196,12 @@ export const SafetyTimeline: React.FC<SafetyTimelineProps> = ({ plan, onCheckIn 
 
               {/* Content */}
               <View style={[styles.content, isLast && styles.contentLast]}>
-                <Text style={styles.itemTitle}>{item.title}</Text>
-                {item.subtitle && (
-                  <Text style={styles.itemSubtitle}>{item.subtitle}</Text>
-                )}
+                <TouchableOpacity onPress={() => toggleItem(item.id)}>
+                  <Text style={styles.itemTitle}>{item.title}</Text>
+                  {item.subtitle && (
+                    <Text style={styles.itemSubtitle}>{item.subtitle}</Text>
+                  )}
+                </TouchableOpacity>
 
                 {/* Venue details */}
                 {item.venue && (
@@ -210,14 +229,17 @@ export const SafetyTimeline: React.FC<SafetyTimelineProps> = ({ plan, onCheckIn 
                 )}
 
                 {/* Check-in action */}
-                {item.type === 'checkin' && item.status === 'current' && onCheckIn && (
-                  <View
+                {item.type === 'checkin' && item.status === 'current' && !completedIds.has(item.id) && onCheckIn && (
+                  <TouchableOpacity
                     style={styles.checkInButton}
-                    onTouchEnd={() => onCheckIn(item.checkIn!.id)}
+                    onPress={() => {
+                      toggleItem(item.id);
+                      onCheckIn(item.checkIn!.id);
+                    }}
                   >
                     <Ionicons name="checkmark-circle" size={20} color={Colors.white} />
                     <Text style={styles.checkInText}>Check In Now</Text>
-                  </View>
+                  </TouchableOpacity>
                 )}
               </View>
             </View>

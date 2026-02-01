@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useAuthStore } from '../../src/stores/authStore';
 import { EmergencyContact } from '../../src/types';
 import { Colors, BorderRadius, Typography, Spacing, Shadows, Gradients } from '../../src/components/ui/theme';
@@ -23,6 +24,11 @@ export default function ProfileScreen() {
   const [showCodeWordEdit, setShowCodeWordEdit] = useState(false);
   const [newContact, setNewContact] = useState({ name: '', phone: '', relationship: '' });
   const [codeWord, setCodeWord] = useState(user?.sosCodeWord || '');
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.replace('/(auth)/login');
+  };
 
   const handleAddContact = () => {
     if (!newContact.name.trim() || !newContact.phone.trim()) {
@@ -277,7 +283,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* Sign Out */}
-        <TouchableOpacity style={styles.signOutButton} onPress={signOut}>
+        <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
           <Ionicons name="log-out-outline" size={20} color={Colors.danger} />
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
